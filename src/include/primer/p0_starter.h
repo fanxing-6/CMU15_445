@@ -15,9 +15,8 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
-#include "common/logger.h"
-
 #include "common/exception.h"
+#include "common/logger.h"
 
 namespace bustub {
 
@@ -36,7 +35,10 @@ class Matrix {
    * @param cols The number of columns
    *
    */
-  Matrix(int rows, int cols) : rows_(rows), cols_(cols) { linear_ = new T[rows_ * cols_]; }
+  Matrix(int rows, int cols) : rows_(rows), cols_(cols) {
+    linear_ = new T[rows_ * cols_];
+    memset(linear_, 0, rows_ * cols_);
+  }
 
   /** The number of rows in the matrix */
   int rows_;
@@ -97,9 +99,9 @@ class Matrix {
    * TODO(P0): Add implementation
    */
   virtual ~Matrix() {
-//    if (linear_ == nullptr) {
-//      return;
-//    }
+    if (linear_ == nullptr) {
+      return;
+    }
     delete[] linear_;
   }
 };
@@ -118,10 +120,11 @@ class RowMatrix : public Matrix<T> {
    * @param rows The number of rows
    * @param cols The number of columns
    */
+
   RowMatrix(int rows, int cols) : Matrix<T>(rows, cols) {
     data_ = new T *[rows];
     for (int i = 0; i < rows; ++i) {
-      data_[i] = this->linear_ + i * rows;
+      data_[i] = Matrix<T>::linear_ + i * cols;
     }
   }
 
@@ -150,12 +153,11 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if either index is out of range
    */
   T GetElement(int i, int j) const override {
-    try {
-      LOG_INFO("i,j = %d", data_[i][j]);
-      return std::move(data_[i][j]);
-    } catch (...) {
-      throw std::out_of_range("OUT_OF_RANGE");
-    }
+    if (i < 0 || i >= this->GetRowCount()) throw Exception(ExceptionType::OUT_OF_RANGE, "index is out of range");
+
+    if (j < 0 || j >= this->GetColumnCount()) throw Exception(ExceptionType::OUT_OF_RANGE, "index is out of range");
+
+    return std::move(data_[i][j]);
   }
 
   /**
@@ -169,11 +171,10 @@ class RowMatrix : public Matrix<T> {
    * @throws OUT_OF_RANGE if either index is out of range
    */
   void SetElement(int i, int j, T val) override {
-    try {
+    if (i < 0 || i >= Matrix<T>::rows_ || j < 0 || j >= Matrix<T>::cols_) {
+      throw Exception(ExceptionType::OUT_OF_RANGE, "index is out of range");
+    } else
       data_[i][j] = val;
-    } catch (...) {
-      throw std::out_of_range("OUT_OF_RANGE");
-    }
   }
 
   /**
@@ -191,14 +192,10 @@ class RowMatrix : public Matrix<T> {
     int rowCount = this->GetRowCount();
     int colCount = this->GetColumnCount();
     if (source.size() != static_cast<std::size_t>(rowCount * colCount)) {
-      throw std::out_of_range("OUT_OF_RANGE");
+      throw Exception(ExceptionType::OUT_OF_RANGE, "index is out of range");
     }
-    int count = 0;
-    for (int i = 0; i < rowCount; ++i) {
-      for (int j = 0; j < colCount; ++j) {
-        data_[i][j] = source[count];
-        count++;
-      }
+    for (int i = 0; i < rowCount * colCount; ++i) {
+      Matrix<T>::linear_[i] = source[i];
     }
   }
 
@@ -208,9 +205,9 @@ class RowMatrix : public Matrix<T> {
    * Destroy a RowMatrix instance.
    */
   ~RowMatrix() override {
-    for (int i = 0; i < this->GetRowCount(); ++i) {
-      delete[] data_[i];
-    }
+    //    for (int i = 0; i < this->GetRowCount(); ++i) {
+    //      delete[] data_[i];
+    //    }
     delete[] data_;
   }
 
@@ -274,12 +271,16 @@ class RowMatrixOperations {
     int row = matrixA->GetRowCount();
     int col = matrixB->GetColumnCount();
 
+    T sum;
+
     std::unique_ptr<RowMatrix<T>> mat = std::make_unique<RowMatrix<T>>(row, col);
     for (int i = 0; i < row; ++i) {
       for (int j = 0; j < col; ++j) {
+        sum = 0;
         for (int k = 0; k < matrixA->GetColumnCount(); ++k) {
-          mat->SetElement(i, j, matrixA->GetElement(i, k) * matrixB->GetElement(k, j));
+          sum += matrixA->GetElement(i, k) * matrixB->GetElement(k, j);
         }
+        mat->SetElement(i, j, sum);
       }
     }
     return mat;
